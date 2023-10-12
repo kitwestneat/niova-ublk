@@ -1,0 +1,21 @@
+-- building the module on fedora after running rpmbuild prep on srpm
+cd rpmbuild/BUILD/kernel-6.5.6/linux-6.5.6-100.fc37.x86_64/drivers/block/
+make -C /lib/modules/`uname -r`/build M=$PWD
+sudo insmod /home/khw/rpmbuild/BUILD/kernel-6.5.6/linux-6.5.6-100.fc37.x86_64/drivers/block/ublk_drv.ko
+
+-- start nisd
+cd ~/niova-ublk/
+NIOVA_LOG_LEVEL=5 ../niova-block/src/nisd -d ./niova-block-test.img -u a7a248f2-d547-43b6-8037-122a89ef87d1 2> /tmp/server
+
+-- start ublk server
+cd ~/niova-ublk/
+make; sudo ./niova-ublk -s $((1024*1024)) -t a7a248f2-d547-43b6-8037-122a89ef87d1 -v 0eb1461f-6ba3-467f-b490-7981db0ecf3b >& /tmp/o
+
+-- if you want to try trace cmd
+sudo trace-cmd record -e all ./niova-ublk -s $((1024*1024)) -t a7a248f2-d547-43b6-8037-122a89ef87d1 -v 0eb1461f-6ba3-467f-b490-7981db0ecf3b >& /tmp/o
+
+sudo trace-cmd start -e all; sudo ./niova-ublk -s $((1024*1024)) -t a7a248f2-d547-43b6-8037-122a89ef87d1 -v 0eb1461f-6ba3-467f-b490-7981db0ecf3b >& /tmp/o
+
+-- creating a loop device using the stock ublk server
+[khw@nishikirei ~]$ sudo insmod /home/khw/rpmbuild/BUILD/kernel-6.5.6/linux-6.5.6-100.fc37.x86_64/drivers/block/ublk_drv.ko
+[khw@nishikirei ~]$ sudo ublk add -t loop -f ~/niova-ublk/ubdsrv/test.img
