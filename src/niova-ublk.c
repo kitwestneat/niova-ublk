@@ -56,7 +56,7 @@ static void sig_handler(int sig)
 static int q_id = 0;
 static void *niova_queue_runner(void *arg)
 {
-    const struct ublksrv_dev *dev = arg;
+	const struct ublksrv_dev *dev = arg;
 	const struct ublksrv_ctrl_dev_info *dinfo =
 		ublksrv_ctrl_get_dev_info(ublksrv_get_ctrl_dev(dev));
 	unsigned dev_id = dinfo->dev_id;
@@ -82,7 +82,7 @@ static void *niova_queue_runner(void *arg)
 
 static void niova_set_ublk_parameters(struct ublksrv_ctrl_dev *cdev,
 									  const struct ublksrv_dev *dev,
-                                      int block_size_bits)
+									  int block_size_bits)
  {
 	const struct ublksrv_ctrl_dev_info *info =
 		ublksrv_ctrl_get_dev_info(cdev);
@@ -97,11 +97,11 @@ static void niova_set_ublk_parameters(struct ublksrv_ctrl_dev *cdev,
 			.dev_sectors		= dev->tgt.dev_size >> block_size_bits,
 		},
 	};
-    struct ublksrv_tgt_base_json tgt_json = {
-        .type = UBLKSRV_TGT_TYPE_DEMO,
-        .dev_size = dev->tgt.dev_size,
-    };
-    strcpy(tgt_json.name, "niova");
+	struct ublksrv_tgt_base_json tgt_json = {
+		.type = UBLKSRV_TGT_TYPE_DEMO,
+		.dev_size = dev->tgt.dev_size,
+	};
+	strcpy(tgt_json.name, "niova");
 
 	int rc = ublksrv_ctrl_set_params(cdev, &p);
 	if (rc)
@@ -118,22 +118,22 @@ static int niova_opt_parse(int argc, char **argv, struct niova_tgt_opts *tgt_opt
 		{ NULL }
 	};
 	int opt;
-    int found = 0;
+	int found = 0;
 
 	while ((opt = getopt_long(argc, argv, "s:v:t:",
 				  longopts, NULL)) != -1) {
 		switch (opt) {
 		case 's':
 			tgt_opts->nto_size = atoll(optarg);
-            found |= 1;
+			found |= 1;
 			break;
 		case 'v':
 			tgt_opts->nto_vdev_uuid = optarg;
-            found |= 2;
+			found |= 2;
 			break;
 		case 't':
 			tgt_opts->nto_tgt_uuid = optarg;
-            found |= 4;
+			found |= 4;
 			break;
 		}
 	}
@@ -143,7 +143,7 @@ static int niova_opt_parse(int argc, char **argv, struct niova_tgt_opts *tgt_opt
 
 static int niova_open(struct ublksrv_dev *dev, struct niova_tgt_opts *opts)
 {
-    SIMPLE_LOG_MSG(LL_TRACE, "enter niova_open");
+	SIMPLE_LOG_MSG(LL_TRACE, "enter niova_open");
 
 	niova_block_client_t *client = NULL;
 	struct niova_block_client_xopts xopts = {0};
@@ -156,7 +156,7 @@ static int niova_open(struct ublksrv_dev *dev, struct niova_tgt_opts *opts)
 	uuid_parse(opts->nto_vdev_uuid, xopts.npcx_opts.vdev_uuid);
 	uuid_parse(opts->nto_tgt_uuid, xopts.npcx_opts.target_uuid);
 
-    size_t nvblks = dev->tgt.dev_size >> niovaSectorBits;
+	size_t nvblks = dev->tgt.dev_size >> niovaSectorBits;
 	vdi.vdi_mode = VDEV_MODE_CLIENT_TEST;
 	vdi.vdi_num_vblks = nvblks;
 
@@ -171,7 +171,7 @@ static int niova_open(struct ublksrv_dev *dev, struct niova_tgt_opts *opts)
 		error(0, rc, "error creating niova client");
 		goto err;
 	}
-    SIMPLE_LOG_MSG(LL_TRACE, "created client@%p", client);
+	SIMPLE_LOG_MSG(LL_TRACE, "created client@%p", client);
 
 	dev->tgt.tgt_data = client;
 
@@ -194,29 +194,29 @@ static int niova_ublk_start(struct ublksrv_ctrl_dev *ctrl_dev)
 
 	niova_set_ublk_parameters(ctrl_dev, dev, niovaSectorBits);
 
-    // queue runner must be running when start_dev is called
-    // -- linux add_disk looks for a partition table, so IO thread must be active
-    pthread_t io_thread;
-    pthread_create(&io_thread, NULL, niova_queue_runner, (void *)dev);
+	// queue runner must be running when start_dev is called
+	// -- linux add_disk looks for a partition table, so IO thread must be active
+	pthread_t io_thread;
+	pthread_create(&io_thread, NULL, niova_queue_runner, (void *)dev);
 
 	ret = ublksrv_ctrl_start_dev(ctrl_dev, getpid());
 	if (ret < 0)
 		goto fail;
 
-    diskStarted = true;
+	diskStarted = true;
 
-    pthread_join(io_thread, NULL);
+	pthread_join(io_thread, NULL);
 
  fail:
-     ublksrv_dev_deinit(dev);
+	 ublksrv_dev_deinit(dev);
 
-     return ret;
+	 return ret;
 }
 
 static int niova_init_tgt(struct ublksrv_dev *dev, int type, int argc,
 		char *argv[])
 {
-    SIMPLE_LOG_MSG(LL_TRACE, "enter niova_init_tgt");
+	SIMPLE_LOG_MSG(LL_TRACE, "enter niova_init_tgt");
 
 	struct niova_tgt_opts tgt_opts;
 	const struct ublksrv_ctrl_dev_info *info =
@@ -226,46 +226,52 @@ static int niova_init_tgt(struct ublksrv_dev *dev, int type, int argc,
 	if (type != UBLKSRV_TGT_TYPE_DEMO)
 		return -1;
 
-    int rc = niova_opt_parse(argc, argv, &tgt_opts);
-    FATAL_IF(rc, "niova_opt_parse: rc=%d", rc);
+	int rc = niova_opt_parse(argc, argv, &tgt_opts);
+	FATAL_IF(rc, "niova_opt_parse: rc=%d", rc);
 
 	tgt->dev_size = tgt_opts.nto_size;
 	tgt->tgt_ring_depth = info->queue_depth;
 	tgt->nr_fds = 0;
 
-    if (tgt->dev_size == 0)
-        return -EINVAL;
+	if (tgt->dev_size == 0)
+		return -EINVAL;
 
-    rc = niova_open(dev, &tgt_opts);
-    FATAL_IF(rc, "niova_open(), rc=%d", rc);
+	rc = niova_open(dev, &tgt_opts);
+	FATAL_IF(rc, "niova_open(), rc=%d", rc);
 
 	return 0;
 }
 
 struct niova_cb_data {
-	int ncd_tag;
-	const struct ublksrv_queue *ncd_q;
-    bool ncd_completed;
-    const struct ublksrv_io_desc *ncd_iod;
+	int 						  ncd_tag;
+	ssize_t 					  ncd_rc;
+	const struct ublksrv_queue   *ncd_q;
+	bool						  ncd_completed;
+	const struct ublksrv_io_desc *ncd_iod;
+	SLIST_ENTRY(niova_cb_data)	  ncd_entry;
 };
+SLIST_HEAD(niova_cb_data_slist, niova_cb_data) niovaCompletedOps =
+	SLIST_HEAD_INITIALIZER(niova_cb_data_slist);
 
 pthread_mutex_t cb_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+// run in niova context
 static void niova_rw_cb(void *arg, ssize_t rc)
 {
 	struct niova_cb_data *ncd = arg;
 	const struct ublksrv_io_desc *iod = ncd->ncd_iod;
 
-    SIMPLE_LOG_MSG(LL_TRACE, "niova_rw_cb: rc=%zd start=%llu base=%llu nr=%d",
-            rc, iod->start_sector, iod->addr, iod->nr_sectors);
-    niova_mutex_lock(&cb_mutex);
-    ublksrv_complete_io(ncd->ncd_q, ncd->ncd_tag, rc);
+	SIMPLE_LOG_MSG(LL_TRACE, "niova_rw_cb: rc=%zd start=%llu base=%llu nr=%d",
+			rc, iod->start_sector, iod->addr, iod->nr_sectors);
+	niova_mutex_lock(&cb_mutex);
+	ncd->ncd_rc = rc;
+	SLIST_INSERT_HEAD(&niovaCompletedOps, ncd, ncd_entry);
+	niova_mutex_unlock(&cb_mutex);
 
-    SIMPLE_LOG_MSG(LL_TRACE, "io_uring_submitting ring@%p", ncd->ncd_q->ring_ptr);
-    io_uring_submit(ncd->ncd_q->ring_ptr);
-    ncd->ncd_completed = true;
-    niova_mutex_unlock(&cb_mutex);
-    // free(ncd);
+	// ublksrv_complete_io must be run in io thread, so send an event
+	SIMPLE_LOG_MSG(LL_TRACE, "sending event q@%p", ncd->ncd_q);
+	ublksrv_queue_send_event(ncd->ncd_q);
+
 }
 
 int niovaWatchdogTimeSec = 5;
@@ -273,24 +279,24 @@ int niovaWatchdogTimeSec = 5;
 /* XXX the kernel worker will hang if we there is an error during startup and we don't respond */
 static void *niova_rw_watchdog(void *arg) {
 	struct niova_cb_data *ncd = arg;
-    sleep(niovaWatchdogTimeSec);
+	sleep(niovaWatchdogTimeSec);
 
-    niova_mutex_lock(&cb_mutex);
-    if (ncd->ncd_completed)
-        free(ncd);
-    else {
-        SIMPLE_LOG_MSG(LL_TRACE, "niova_rw_watchdog: timed out, completing");
-        ublksrv_complete_io(ncd->ncd_q, ncd->ncd_tag, -EIO);
-    }
-    niova_mutex_unlock(&cb_mutex);
+	niova_mutex_lock(&cb_mutex);
+	if (ncd->ncd_completed)
+		free(ncd);
+	else {
+		SIMPLE_LOG_MSG(LL_TRACE, "niova_rw_watchdog: timed out, completing");
+		ublksrv_complete_io(ncd->ncd_q, ncd->ncd_tag, -EIO);
+	}
+	niova_mutex_unlock(&cb_mutex);
 
-    return NULL;
+	return NULL;
 }
 
 static int niova_rw(bool is_read, const struct ublksrv_queue *q,
 		const struct ublk_io_data *data)
 {
-    SIMPLE_FUNC_ENTRY(LL_TRACE);
+	SIMPLE_FUNC_ENTRY(LL_TRACE);
 
 	niova_block_client_t *client = q->private_data;
 	const struct ublksrv_io_desc *iod = data->iod;
@@ -298,35 +304,35 @@ static int niova_rw(bool is_read, const struct ublksrv_queue *q,
 	struct niova_cb_data *ncd = calloc(1, sizeof(struct niova_cb_data));
 	ncd->ncd_tag = data->tag;
 	ncd->ncd_q = q;
-    ncd->ncd_completed = false;
-    ncd->ncd_iod = iod;
+	ncd->ncd_completed = false;
+	ncd->ncd_iod = iod;
 
 	unsigned long long start_vblk = iod->start_sector;
 
-    struct iovec iov = {
-        .iov_base = (void *)iod->addr,
-        .iov_len = iod->nr_sectors << SECTOR_SHIFT,
-    };
-    int iov_cnt = 1;
+	struct iovec iov = {
+		.iov_base = (void *)iod->addr,
+		.iov_len = iod->nr_sectors << SECTOR_SHIFT,
+	};
+	int iov_cnt = 1;
 
-    SIMPLE_LOG_MSG(LL_TRACE, "niova_rw: cli@%p op=%s start=%llu base=%llu nr=%d",
-            client, is_read ? "read" : "write", iod->start_sector, iod->addr, iod->nr_sectors);
+	SIMPLE_LOG_MSG(LL_TRACE, "niova_rw: cli@%p op=%s start=%llu base=%llu nr=%d",
+			client, is_read ? "read" : "write", iod->start_sector, iod->addr, iod->nr_sectors);
 
 	int rc = is_read ?
 		NiovaBlockClientReadv(client, start_vblk, &iov, iov_cnt,
-				      niova_rw_cb, ncd):
+					  niova_rw_cb, ncd):
 		NiovaBlockClientWritev(client, start_vblk, &iov, iov_cnt,
-				       niova_rw_cb, ncd);
+					   niova_rw_cb, ncd);
 
-    /*
-    pthread_t watchdog;
-    pthread_create(&watchdog, NULL, niova_rw_watchdog, ncd);
-    pthread_detach(watchdog);
-    */
+	/*
+	pthread_t watchdog;
+	pthread_create(&watchdog, NULL, niova_rw_watchdog, ncd);
+	pthread_detach(watchdog);
+	*/
 
-    SIMPLE_FUNC_EXIT(LL_TRACE);
+	SIMPLE_FUNC_EXIT(LL_TRACE);
 
-    return rc < 0 ? -EIO : 0;
+	return rc < 0 ? -EIO : 0;
 }
 
 static int niova_handle_io_async(const struct ublksrv_queue *q,
@@ -334,12 +340,12 @@ static int niova_handle_io_async(const struct ublksrv_queue *q,
 {
 	const struct ublksrv_io_desc *iod = data->iod;
 
-    SIMPLE_LOG_MSG(LL_TRACE, "enter niova_handle_io_async, started=%d", diskStarted);
+	SIMPLE_LOG_MSG(LL_TRACE, "enter niova_handle_io_async, started=%d", diskStarted);
 
-    if (false && !diskStarted) { // XXX
-        ublksrv_complete_io(q, data->tag, iod->nr_sectors << SECTOR_SHIFT);
-        return 0;
-    }
+	if (false && !diskStarted) { // XXX
+		ublksrv_complete_io(q, data->tag, iod->nr_sectors << SECTOR_SHIFT);
+		return 0;
+	}
 
 	unsigned ublk_op = ublksrv_get_op(iod);
 	switch (ublk_op) {
@@ -362,11 +368,32 @@ static int niova_handle_io_async(const struct ublksrv_queue *q,
 	return 0;
 }
 
+static void niova_handle_event(const struct ublksrv_queue *q)
+{
+	struct niova_cb_data *ncd;
+	niova_mutex_lock(&cb_mutex);
+	SIMPLE_LOG_MSG(LL_TRACE, "completed is_empty=%d", SLIST_EMPTY(&niovaCompletedOps));
+
+	while (!SLIST_EMPTY(&niovaCompletedOps)) {
+		ncd = SLIST_FIRST(&niovaCompletedOps);
+		SLIST_REMOVE_HEAD(&niovaCompletedOps, ncd_entry);
+
+		const struct ublksrv_io_desc *iod = ncd->ncd_iod;
+
+		SIMPLE_LOG_MSG(LL_TRACE, "completing io: rc=%zd start=%llu base=%llu nr=%d",
+			ncd->ncd_rc, iod->start_sector, iod->addr, iod->nr_sectors);
+		ublksrv_complete_io(ncd->ncd_q, ncd->ncd_tag, ncd->ncd_rc);
+		free(ncd);
+	}
+	niova_mutex_unlock(&cb_mutex);
+}
+
 static struct ublksrv_tgt_type niova_tgt_type = {
 	.type	= UBLKSRV_TGT_TYPE_DEMO,
 	.name	=  "niova",
 	.init_tgt = niova_init_tgt,
 	.handle_io_async = niova_handle_io_async,
+	.handle_event = niova_handle_event,
 };
 
 int main(int argc, char *argv[])
@@ -381,21 +408,22 @@ int main(int argc, char *argv[])
 		.flags = 0,
 		.tgt_argc = argc,
 		.tgt_argv = argv,
+		.ublksrv_flags = UBLKSRV_F_NEED_EVENTFD,
 	};
 	struct ublksrv_ctrl_dev *dev;
 	int ret;
 
-    /*
+	/*
 	if (signal(SIGTERM, sig_handler) == SIG_ERR)
 		error(EXIT_FAILURE, errno, "signal");
 	if (signal(SIGINT, sig_handler) == SIG_ERR)
 		error(EXIT_FAILURE, errno, "signal");
-        */
+		*/
 
-    log_level_set(5);
-    ublk_set_debug_mask(255);
+	log_level_set(5);
+	ublk_set_debug_mask(255);
 
-    SIMPLE_LOG_MSG(LL_DEBUG, "calling ublksrv_ctrl_init");
+	SIMPLE_LOG_MSG(LL_DEBUG, "calling ublksrv_ctrl_init");
 
 	dev = ublksrv_ctrl_init(&data);
 	if (!dev)
@@ -404,16 +432,16 @@ int main(int argc, char *argv[])
 	/* ugly, but signal handler needs this_dev */
 	this_dev = dev;
 
-    SIMPLE_LOG_MSG(LL_DEBUG, "calling ublksrv_ctrl_add_dev(%p)", dev);
+	SIMPLE_LOG_MSG(LL_DEBUG, "calling ublksrv_ctrl_add_dev(%p)", dev);
 	ret = ublksrv_ctrl_add_dev(dev);
 	if (ret < 0) {
 		error(0, -ret, "can't add dev %d", data.dev_id);
 		goto fail;
 	}
 
-    ublksrv_ctrl_dump(dev, NULL);
+	ublksrv_ctrl_dump(dev, NULL);
 
-    SIMPLE_LOG_MSG(LL_DEBUG, "calling niova_ublk_start(%p)", dev);
+	SIMPLE_LOG_MSG(LL_DEBUG, "calling niova_ublk_start(%p)", dev);
 	ret = niova_ublk_start(dev);
 	if (ret < 0 && ret != -EINTR) {
 		error(0, -ret, "can't start daemon");
