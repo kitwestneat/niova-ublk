@@ -248,6 +248,7 @@ struct niova_cb_data {
 	const struct ublksrv_queue   *ncd_q;
 	bool						  ncd_completed;
 	const struct ublksrv_io_desc *ncd_iod;
+	struct iovec				  ncd_iov;
 	SLIST_ENTRY(niova_cb_data)	  ncd_entry;
 };
 SLIST_HEAD(niova_cb_data_slist, niova_cb_data) niovaCompletedOps =
@@ -263,9 +264,11 @@ static void niova_rw_cb(void *arg, ssize_t rc)
 
 	SIMPLE_LOG_MSG(LL_TRACE, "niova_rw_cb: rc=%zd start=%llu base=%llu nr=%d",
 			rc, iod->start_sector, iod->addr, iod->nr_sectors);
+	SIMPLE_LOG_MSG(LL_TRACE, "LCK locking mutex");
 	niova_mutex_lock(&cb_mutex);
 	ncd->ncd_rc = rc;
 	SLIST_INSERT_HEAD(&niovaCompletedOps, ncd, ncd_entry);
+	SIMPLE_LOG_MSG(LL_TRACE, "LCK unlocking mutex");
 	niova_mutex_unlock(&cb_mutex);
 
 	// ublksrv_complete_io must be run in io thread, so send an event
@@ -281,6 +284,7 @@ static void *niova_rw_watchdog(void *arg) {
 	struct niova_cb_data *ncd = arg;
 	sleep(niovaWatchdogTimeSec);
 
+	SIMPLE_LOG_MSG(LL_TRACE, "LCK locking mutex");
 	niova_mutex_lock(&cb_mutex);
 	if (ncd->ncd_completed)
 		free(ncd);
@@ -288,6 +292,7 @@ static void *niova_rw_watchdog(void *arg) {
 		SIMPLE_LOG_MSG(LL_TRACE, "niova_rw_watchdog: timed out, completing");
 		ublksrv_complete_io(ncd->ncd_q, ncd->ncd_tag, -EIO);
 	}
+	SIMPLE_LOG_MSG(LL_TRACE, "LCK unlocking mutex");
 	niova_mutex_unlock(&cb_mutex);
 
 	return NULL;
@@ -307,21 +312,20 @@ static int niova_rw(bool is_read, const struct ublksrv_queue *q,
 	ncd->ncd_completed = false;
 	ncd->ncd_iod = iod;
 
-	unsigned long long start_vblk = iod->start_sector;
+	// ublk uses 512 sectors
+	unsigned long long start_vblk = iod->start_sector >> (niovaSectorBits - SECTOR_SHIFT);
 
-	struct iovec iov = {
-		.iov_base = (void *)iod->addr,
-		.iov_len = iod->nr_sectors << SECTOR_SHIFT,
-	};
+	ncd->ncd_iov.iov_base = (void *)iod->addr;
+	ncd->ncd_iov.iov_len = iod->nr_sectors << SECTOR_SHIFT;
 	int iov_cnt = 1;
 
-	SIMPLE_LOG_MSG(LL_TRACE, "niova_rw: cli@%p op=%s start=%llu base=%llu nr=%d",
-			client, is_read ? "read" : "write", iod->start_sector, iod->addr, iod->nr_sectors);
+	SIMPLE_LOG_MSG(LL_TRACE, "niova_rw: cli@%p op=%s start=%llu base=%llu len=%zu",
+			client, is_read ? "read" : "write", start_vblk, iod->addr, ncd->ncd_iov.iov_len);
 
 	int rc = is_read ?
-		NiovaBlockClientReadv(client, start_vblk, &iov, iov_cnt,
+		NiovaBlockClientReadv(client, start_vblk, &ncd->ncd_iov, iov_cnt,
 					  niova_rw_cb, ncd):
-		NiovaBlockClientWritev(client, start_vblk, &iov, iov_cnt,
+		NiovaBlockClientWritev(client, start_vblk, &ncd->ncd_iov, iov_cnt,
 					   niova_rw_cb, ncd);
 
 	/*
@@ -371,8 +375,10 @@ static int niova_handle_io_async(const struct ublksrv_queue *q,
 static void niova_handle_event(const struct ublksrv_queue *q)
 {
 	struct niova_cb_data *ncd;
+
+	SIMPLE_LOG_MSG(LL_TRACE, "LCK locking mutex");
 	niova_mutex_lock(&cb_mutex);
-	SIMPLE_LOG_MSG(LL_TRACE, "completed is_empty=%d", SLIST_EMPTY(&niovaCompletedOps));
+	SIMPLE_LOG_MSG(LL_TRACE, "list is_empty=%d", SLIST_EMPTY(&niovaCompletedOps));
 
 	while (!SLIST_EMPTY(&niovaCompletedOps)) {
 		ncd = SLIST_FIRST(&niovaCompletedOps);
@@ -385,7 +391,12 @@ static void niova_handle_event(const struct ublksrv_queue *q)
 		ublksrv_complete_io(ncd->ncd_q, ncd->ncd_tag, ncd->ncd_rc);
 		free(ncd);
 	}
+	SIMPLE_LOG_MSG(LL_TRACE, "LCK unlocking mutex");
 	niova_mutex_unlock(&cb_mutex);
+
+	// requeue event handler
+	ublksrv_queue_handled_event(q);
+	SIMPLE_FUNC_EXIT(LL_TRACE);
 }
 
 static struct ublksrv_tgt_type niova_tgt_type = {
@@ -421,7 +432,7 @@ int main(int argc, char *argv[])
 		*/
 
 	log_level_set(5);
-	ublk_set_debug_mask(255);
+	ublk_set_debug_mask(-1);
 
 	SIMPLE_LOG_MSG(LL_DEBUG, "calling ublksrv_ctrl_init");
 
